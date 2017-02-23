@@ -84,20 +84,3 @@ To use the AWS autocluster features, you will need an IAM policy that allows the
 If you do not want to use the IAM role for the instances, you could create a role and specify the `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` when starting the container.
 
 There is a [CloudFormation template](https://github.com/gmr/alpine-rabbitmq-autocluster/blob/master/cloudformation.json) that should let you test the plugin. The template creates an IAM Policy and Role, Security Group, ELB, Launch Configuration, and Autoscaling group.
-
-The following is the user data snippet that for the Ubuntu image that is used in the Launch Configuration:
-
-```yaml
-#cloud-config
-apt_update: true
-apt_upgrade: true
-apt_sources:
-  - source: deb https://apt.dockerproject.org/repo ubuntu-trusty main
-    keyid: 58118E89F3A912897C070ADBF76221572C52609D
-    filename: docker.list
-packages:
-  - docker-engine
-runcmd:
-  - export AWS_DEFAULT_REGION=`ec2metadata --availability-zone | sed s'/.$//'`
-  - docker run -d --name rabbitmq --net=host -p 4369:4369 -p 5672:5672 -p 15672:15672 -p 25672:25672 -e AUTOCLUSTER_TYPE=aws -e AWS_AUTOSCALING=true -e AUTOCLUSTER_CLEANUP=true -e CLEANUP_WARN_ONLY=false -e AWS_DEFAULT_REGION=$AWS_DEFAULT_REGION gavinmroy/alpine-rabbitmq-autocluster:3.6.2-0.6.0
-```
