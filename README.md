@@ -83,4 +83,4 @@ To use the AWS autocluster features, you will need an IAM policy that allows the
 
 If you do not want to use the IAM role for the instances, you could create a role and specify the `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` when starting the container.
 
-There is a [CloudFormation template](https://github.com/gmr/alpine-rabbitmq-autocluster/blob/master/cloudformation.json) that should let you test the plugin. The template creates an IAM Policy and Role, Security Group, ELB, Launch Configuration, and Autoscaling group.
+There is a [CloudFormation template](https://github.com/checkr/coreos-rabbitmq-autocluster/blob/master/cloudformation.tpl.json) that is used to generate `cloudformation.json` by running `make gen`. The template creates an IAM Policy and Role, Security Group, ELB, Launch Configuration, and Autoscaling group.
