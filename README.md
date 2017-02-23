@@ -1,4 +1,4 @@
-# alpine-rabbitmq-autocluster
+# coreos-rabbitmq-autocluster
 RabbitMQ image with the autocluster plugin
 
 RabbitMQ Version: 3.6.6
