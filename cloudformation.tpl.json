@@ -18,6 +18,18 @@
       "Description" : "Subnet IDs",
       "Type" : "List<AWS::EC2::Subnet::Id>"
     },
+    "Route53Zone": {
+      "Description" : "Hosted Zone",
+      "Type" : "AWS::Route53::HostedZone::Id"
+    },
+    "Route53DNS" : {
+      "Type" : "String",
+      "Description" : "DNS name (ex: rabbit01.example.com)"
+    },
+    "SSLCertificateId" : {
+      "Type" : "String",
+      "Description" : "SSL Certificate ARN (ex: arn:aws:acm:us-east-1:xxx:certificate/xxx)"
+    },
 		"MaxSize": {
 			"Type": "Number",
 			"Default": "5",
@@ -52,7 +64,24 @@
 	"Metadata": {},
 	"Outputs": {},
 	"Resources": {
-		"AutoclusterRole": {
+    "ExternalDNS": {
+      "Type": "AWS::Route53::RecordSet",
+      "Properties": {
+        "HostedZoneId": { "Fn::Join": [ "", [ "/hostedzone/", { "Ref": "Route53Zone" } ] ] },
+        "Name": { "Ref" : "Route53DNS" },
+        "TTL": 60,
+        "ResourceRecords": [
+          {
+            "Fn::GetAtt": [
+              "RabbitMQELB",
+              "DNSName"
+            ]
+          }
+        ],
+        "Type": "CNAME"
+      }
+    },
+		"RabbitMQRole": {
 			"Type": "AWS::IAM::Role",
 			"Properties": {
 				"AssumeRolePolicyDocument": {
@@ -68,10 +97,10 @@
 				"Path": "/"
 			}
 		},
-		"AutoclusterPolicy": {
+		"RabbitMQPolicy": {
 			"Type": "AWS::IAM::Policy",
 			"Properties": {
-				"PolicyName": "AutoclusterPolicy",
+				"PolicyName": "RabbitMQPolicy",
 				"PolicyDocument": {
 					"Version": "2012-10-17",
 					"Statement": [{
@@ -86,25 +115,54 @@
 					}]
 				},
 				"Roles": [{
-					"Ref": "AutoclusterRole"
+					"Ref": "RabbitMQRole"
 				}]
 			}
 		},
-		"AutoclusterInstanceProfile": {
+		"RabbitMQInstanceProfile": {
 			"Type": "AWS::IAM::InstanceProfile",
 			"Properties": {
 				"Path": "/",
 				"Roles": [{
-					"Ref": "AutoclusterRole"
+					"Ref": "RabbitMQRole"
 				}]
 			}
 		},
-		"AutoclusterSecurityGroup": {
+		"ELBSecurityGroup": {
+			"Type": "AWS::EC2::SecurityGroup",
+			"Properties": {
+	      "VpcId": {"Ref": "VpcId"},
+				"GroupDescription": "RabbitMQ ELB",
+				"SecurityGroupIngress": [{
+					"IpProtocol": "tcp",
+					"FromPort": "443",
+					"ToPort": "443",
+					"CidrIp": "0.0.0.0/0"
+				}, {
+					"IpProtocol": "tcp",
+					"FromPort": "5672",
+					"ToPort": "5672",
+					"CidrIp": "0.0.0.0/0"
+				}],
+				"Tags": [{
+					"Key": "Name",
+					"Value": {
+						"Ref": "AWS::StackName"
+					}
+				}]
+			}
+		},
+		"RabbitMQSecurityGroup": {
 			"Type": "AWS::EC2::SecurityGroup",
 			"Properties": {
 	      "VpcId": {"Ref": "VpcId"},
 				"GroupDescription": "Open ports to the RabbitMQ cluster",
 				"SecurityGroupIngress": [{
+					"IpProtocol": "tcp",
+					"FromPort": "22",
+					"ToPort": "22",
+					"CidrIp": "0.0.0.0/0"
+				}, {
 					"IpProtocol": "tcp",
 					"FromPort": "5672",
 					"ToPort": "5672",
@@ -123,35 +181,35 @@
 				}]
 			}
 		},
-		"AutoclusterSGIngress4369": {
+		"RabbitMQSGIngress4369": {
 			"Type": "AWS::EC2::SecurityGroupIngress",
 			"Properties": {
 				"GroupId": {
-					"Ref": "AutoclusterSecurityGroup"
+					"Ref": "RabbitMQSecurityGroup"
 				},
 				"IpProtocol": "tcp",
 				"FromPort": "4369",
 				"ToPort": "4369",
 				"SourceSecurityGroupId": {
-					"Ref": "AutoclusterSecurityGroup"
+					"Ref": "RabbitMQSecurityGroup"
 				}
 			}
 		},
-		"AutoclusterSGIngress25672": {
+		"RabbitMQSGIngress25672": {
 			"Type": "AWS::EC2::SecurityGroupIngress",
 			"Properties": {
 				"GroupId": {
-					"Ref": "AutoclusterSecurityGroup"
+					"Ref": "RabbitMQSecurityGroup"
 				},
 				"IpProtocol": "tcp",
 				"FromPort": "25672",
 				"ToPort": "25672",
 				"SourceSecurityGroupId": {
-					"Ref": "AutoclusterSecurityGroup"
+					"Ref": "RabbitMQSecurityGroup"
 				}
 			}
 		},
-		"AutoclusterELB": {
+		"RabbitMQELB": {
 			"Type": "AWS::ElasticLoadBalancing::LoadBalancer",
 			"Properties": {
         "Subnets": { "Ref": "Subnets" }, 
@@ -164,7 +222,8 @@
 				}, {
 					"LoadBalancerPort": "443",
 					"InstancePort": "15672",
-					"Protocol": "HTTP"
+					"Protocol": "HTTPS",
+          "SSLCertificateId": { "Ref": "SSLCertificateId" }
 				}, {
 					"LoadBalancerPort": "15672",
 					"InstancePort": "15672",
@@ -182,10 +241,11 @@
 					"Value": {
 						"Ref": "AWS::StackName"
 					}
-				}]
+				}],
+        "SecurityGroups": [ { "Ref" : "ELBSecurityGroup" } ]
 			}
 		},
-		"AutoclusterLaunchConfig": {
+		"RabbitMQLaunchConfig": {
 			"Type": "AWS::AutoScaling::LaunchConfiguration",
 			"Properties": {
 				"ImageId": { "Fn::FindInMap" : ["AWSRegionToAMI", { "Ref" : "AWS::Region" }, "id"] },
@@ -194,18 +254,18 @@
 					"Ref": "InstanceType"
 				},
 				"IamInstanceProfile": {
-					"Ref": "AutoclusterInstanceProfile"
+					"Ref": "RabbitMQInstanceProfile"
 				},
 				"KeyName": {
 					"Ref": "KeyName"
 				},
 				"SecurityGroups": [{
-					"Ref": "AutoclusterSecurityGroup"
+					"Ref": "RabbitMQSecurityGroup"
 				}],
 				"UserData": "##USERDATA##"
 			}
 		},
-		"AutoclusterAutoScalingGroup": {
+		"RabbitMQAutoScalingGroup": {
 			"Type": "AWS::AutoScaling::AutoScalingGroup",
 			"Properties": {
         "VPCZoneIdentifier": { "Ref": "Subnets" },
@@ -219,10 +279,10 @@
 				"HealthCheckGracePeriod": 300,
 				"HealthCheckType": "ELB",
 				"LaunchConfigurationName": {
-					"Ref": "AutoclusterLaunchConfig"
+					"Ref": "RabbitMQLaunchConfig"
 				},
 				"LoadBalancerNames": [{
-					"Ref": "AutoclusterELB"
+					"Ref": "RabbitMQELB"
 				}],
 				"Tags": [{
 					"Key": "Name",
