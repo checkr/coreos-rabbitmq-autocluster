@@ -106,16 +106,6 @@
 				"GroupDescription": "Open ports to the RabbitMQ cluster",
 				"SecurityGroupIngress": [{
 					"IpProtocol": "tcp",
-					"FromPort": "22",
-					"ToPort": "22",
-					"CidrIp": "0.0.0.0/0"
-				}, {
-					"IpProtocol": "tcp",
-					"FromPort": "443",
-					"ToPort": "443",
-					"CidrIp": "0.0.0.0/0"
-				}, {
-					"IpProtocol": "tcp",
 					"FromPort": "5672",
 					"ToPort": "5672",
 					"CidrIp": "0.0.0.0/0"
@@ -136,14 +126,13 @@
 		"AutoclusterSGIngress4369": {
 			"Type": "AWS::EC2::SecurityGroupIngress",
 			"Properties": {
-	      "VpcId": {"Ref": "VpcId"},
-				"GroupName": {
+				"GroupId": {
 					"Ref": "AutoclusterSecurityGroup"
 				},
 				"IpProtocol": "tcp",
 				"FromPort": "4369",
 				"ToPort": "4369",
-				"SourceSecurityGroupName": {
+				"SourceSecurityGroupId": {
 					"Ref": "AutoclusterSecurityGroup"
 				}
 			}
@@ -151,14 +140,13 @@
 		"AutoclusterSGIngress25672": {
 			"Type": "AWS::EC2::SecurityGroupIngress",
 			"Properties": {
-	      "VpcId": {"Ref": "VpcId"},
-				"GroupName": {
+				"GroupId": {
 					"Ref": "AutoclusterSecurityGroup"
 				},
 				"IpProtocol": "tcp",
 				"FromPort": "25672",
 				"ToPort": "25672",
-				"SourceSecurityGroupName": {
+				"SourceSecurityGroupId": {
 					"Ref": "AutoclusterSecurityGroup"
 				}
 			}
@@ -168,6 +156,7 @@
 			"Properties": {
         "Subnets": { "Ref": "Subnets" }, 
 				"CrossZone": true,
+        "Scheme": "internal",
 				"Listeners": [{
 					"LoadBalancerPort": "5672",
 					"InstancePort": "5672",
@@ -219,9 +208,7 @@
 		"AutoclusterAutoScalingGroup": {
 			"Type": "AWS::AutoScaling::AutoScalingGroup",
 			"Properties": {
-				"AvailabilityZones": {
-					"Fn::GetAZs": ""
-				},
+        "VPCZoneIdentifier": { "Ref": "Subnets" },
 				"DesiredCapacity": {
 					"Ref": "StartSize"
 				},

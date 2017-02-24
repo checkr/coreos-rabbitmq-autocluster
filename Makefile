@@ -21,4 +21,4 @@ push:
 
 .PHONY: gen
 gen:
-	cat cloudformation.tpl.json | sed -e "s/##USERDATA##/$(shell cat ./cloud-config.yml | base64 -i -)/g" > cloudformation.json
+	cat cloudformation.tpl.json | sed -e "s/##USERDATA##/$(shell cat ./cloud-config.yml | base64 -i -)/g" > build/cloudformation.json
