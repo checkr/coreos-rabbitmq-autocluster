@@ -5,11 +5,19 @@
 	"Mappings": {
 		"AWSRegionToAMI": {
 			"us-east-1": {
-				"AMI": "ami-fce3c696"
+				"id": "ami-1ad0000c"
 			}
 		}
 	},
 	"Parameters": {
+		"VpcId": {
+			"Type": "AWS::EC2::VPC::Id",
+			"Description": "VPC"
+		},
+    "Subnets": {
+      "Description" : "Subnet IDs",
+      "Type" : "List<AWS::EC2::Subnet::Id>"
+    },
 		"MaxSize": {
 			"Type": "Number",
 			"Default": "5",
@@ -94,6 +102,7 @@
 		"AutoclusterSecurityGroup": {
 			"Type": "AWS::EC2::SecurityGroup",
 			"Properties": {
+	      "VpcId": {"Ref": "VpcId"},
 				"GroupDescription": "Open ports to the RabbitMQ cluster",
 				"SecurityGroupIngress": [{
 					"IpProtocol": "tcp",
@@ -102,8 +111,8 @@
 					"CidrIp": "0.0.0.0/0"
 				}, {
 					"IpProtocol": "tcp",
-					"FromPort": "80",
-					"ToPort": "80",
+					"FromPort": "443",
+					"ToPort": "443",
 					"CidrIp": "0.0.0.0/0"
 				}, {
 					"IpProtocol": "tcp",
@@ -127,6 +136,7 @@
 		"AutoclusterSGIngress4369": {
 			"Type": "AWS::EC2::SecurityGroupIngress",
 			"Properties": {
+	      "VpcId": {"Ref": "VpcId"},
 				"GroupName": {
 					"Ref": "AutoclusterSecurityGroup"
 				},
@@ -141,6 +151,7 @@
 		"AutoclusterSGIngress25672": {
 			"Type": "AWS::EC2::SecurityGroupIngress",
 			"Properties": {
+	      "VpcId": {"Ref": "VpcId"},
 				"GroupName": {
 					"Ref": "AutoclusterSecurityGroup"
 				},
@@ -155,16 +166,14 @@
 		"AutoclusterELB": {
 			"Type": "AWS::ElasticLoadBalancing::LoadBalancer",
 			"Properties": {
-				"AvailabilityZones": {
-					"Fn::GetAZs": ""
-				},
+        "Subnets": { "Ref": "Subnets" }, 
 				"CrossZone": true,
 				"Listeners": [{
 					"LoadBalancerPort": "5672",
 					"InstancePort": "5672",
 					"Protocol": "TCP"
 				}, {
-					"LoadBalancerPort": "80",
+					"LoadBalancerPort": "443",
 					"InstancePort": "15672",
 					"Protocol": "HTTP"
 				}, {
@@ -190,7 +199,7 @@
 		"AutoclusterLaunchConfig": {
 			"Type": "AWS::AutoScaling::LaunchConfiguration",
 			"Properties": {
-				"ImageId": "ami-fce3c696",
+				"ImageId": { "Fn::FindInMap" : ["AWSRegionToAMI", { "Ref" : "AWS::Region" }, "id"] },
 				"InstanceMonitoring": true,
 				"InstanceType": {
 					"Ref": "InstanceType"
